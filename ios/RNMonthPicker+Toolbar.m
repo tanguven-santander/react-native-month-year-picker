@@ -30,7 +30,8 @@ RNMonthPicker *picker;
         }
         [self setValue:defaultColor forKey:@"backgroundColor"];
         [self addSubview:toolbar];
-        [self addSubview:picker];
+      [self addSubview:picker];
+        [self setAccessibilityElements:@[picker, toolbar]];
     }
     return self;
 }
