@@ -5,6 +5,7 @@
 //  Created by Gustavo Paris on 22/04/2020.
 //  Copyright © 2020 Facebook. All rights reserved.
 //
+
 #import "RNMonthPicker.h"
 
 #import <React/RCTConvert.h>
@@ -18,10 +19,10 @@
 @implementation RNMonthPicker
 
 NSCalendar *gregorian;
-NSDateFormatter *df;
 NSDateComponents *maxComponents;
 NSDateComponents *minComponents;
 
+NSMutableArray *months;
 NSMutableArray *years;
 NSInteger selectedMonthRow;
 NSInteger selectedYearRow;
@@ -31,8 +32,6 @@ NSInteger selectedYearRow;
     if ((self = [super initWithFrame:frame])) {
         self.delegate = self;
         gregorian = [NSCalendar currentCalendar];
-        df = [[NSDateFormatter alloc] init];
-        [df setDateFormat:@"MMMM"];
         _value = nil;
         _minimumDate = nil;
         _maximumDate = nil;
@@ -42,17 +41,11 @@ NSInteger selectedYearRow;
 
 RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 
-- (void)setLocale:(NSLocale *)useLocale {
-    [df setLocale:useLocale];
-}
-
-- (void)setMode:(NSString *)mode {
-    if ([mode isEqualToString:@"number"]) {
-        [df setDateFormat:@"MM"];
-    } else if ([mode isEqualToString:@"shortNumber"]) {
-        [df setDateFormat:@"M"];
-    } else if ([mode isEqualToString:@"short"]) {
-        [df setDateFormat:@"MMM"];
+- (void)initMonths {
+    months = [NSMutableArray array];
+    NSDateFormatter *df = [[NSDateFormatter alloc] init];
+    for(NSInteger i = 0; i < 12; i ++){
+        [months addObject:[[df monthSymbols] objectAtIndex:(i)]];
     }
 }
 
@@ -63,17 +56,34 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     }
 }
 
+- (void)setEnableAutoDarkMode:(BOOL) enableAutoDarkMode {
+    if (@available(iOS 13.0, *)) {
+        if (!enableAutoDarkMode) {
+            self.overrideUserInterfaceStyle = UIUserInterfaceStyleLight;
+        }
+    }
+}
+
 - (void)setValue:(nonnull NSDate *)value {
     if (value != _value) {
         NSDateComponents *selectedDateComponents = [gregorian components:(NSCalendarUnitMonth|NSCalendarUnitYear) fromDate:value];
         if (!_value) {
+            [self initMonths];
             [self initYears: [selectedDateComponents year]];
+            
             selectedMonthRow = [selectedDateComponents month] - 1;
             selectedYearRow = DEFAULT_SIZE;
             [self setSelectedRows: NO];
         }
         _value = value;
     }
+}
+
+-(void)setSelectedRows:(BOOL)animated {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self selectRow:selectedMonthRow inComponent:0 animated:animated];
+        [self selectRow:selectedYearRow inComponent:1 animated:animated];
+    });
 }
 
 - (void)setMaximumDate:(NSDate *)maximumDate {
@@ -86,13 +96,6 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     minComponents = _minimumDate ? [gregorian components:NSCalendarUnitMonth | NSCalendarUnitYear fromDate:_minimumDate] : nil;
 }
 
-- (void)setSelectedRows:(BOOL)animated {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self selectRow:selectedMonthRow inComponent:0 animated:animated];
-        [self selectRow:selectedYearRow inComponent:1 animated:animated];
-    });
-}
-
 #pragma mark - UIPickerViewDataSource protocol
 // number of columns
 - (NSInteger)numberOfComponentsInPickerView:(nonnull UIPickerView *)pickerView {
@@ -103,7 +106,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 - (NSInteger)pickerView:(nonnull UIPickerView *)pickerView numberOfRowsInComponent:(NSInteger)component {
     switch (component) {
         case 0:
-            return 12;
+            return [months count];
         case 1:
             return [years count];
             break;
@@ -116,11 +119,8 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 // row titles
 - (NSString *)pickerView:(nonnull UIPickerView *) pickerView titleForRow:(NSInteger)row forComponent:(NSInteger)component {
     switch (component) {
-        case 0: {
-            NSDateComponents *comps = [[NSDateComponents alloc] init];
-            [comps setMonth:row + 1];
-            return [NSString stringWithFormat:@"%@", [df stringFromDate:[gregorian dateFromComponents:comps]]];
-        }
+        case 0:
+            return [NSString stringWithFormat:@"%@", months[row]];
         case 1:
             return [NSString stringWithFormat:@"%@", years[row]];
         default:
@@ -152,7 +152,8 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 }
 
 - (void)pickerView:(__unused UIPickerView *)pickerView
-      didSelectRow:(NSInteger)row inComponent:(__unused NSInteger)component {
+      didSelectRow:(NSInteger)row inComponent:(__unused NSInteger)component
+{
     switch (component) {
         case 0:
             [self getSelectedMonthRow:row];
@@ -167,7 +168,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     [self setSelectedRows: YES];
     if (_onChange) {
         _onChange(@{
-                @"newDate": [NSString stringWithFormat: @"%@-%@", [NSString stringWithFormat: @"%ld", selectedMonthRow + 1], [NSString stringWithFormat: @"%@", years[selectedYearRow]]]
+            @"newDate": [NSString stringWithFormat: @"%@-%@", [NSString stringWithFormat: @"%ld", selectedMonthRow + 1], [NSString stringWithFormat: @"%@", years[selectedYearRow]]]
         });
     }
 }
