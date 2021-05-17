@@ -39,6 +39,7 @@ class MonthPicker extends React.PureComponent {
       minimumDate,
       maximumDate,
       enableAutoDarkMode = true,
+      ...rest
     } = this.props;
     invariant(value, 'value prop is required!');
 
@@ -51,6 +52,7 @@ class MonthPicker extends React.PureComponent {
           minimumDate={this.getLongFromDate(minimumDate)}
           maximumDate={this.getLongFromDate(maximumDate)}
           enableAutoDarkMode={enableAutoDarkMode}
+          {...rest}
         />
       </View>
     );
